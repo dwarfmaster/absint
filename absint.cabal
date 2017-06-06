@@ -15,7 +15,7 @@ cabal-version:       >=1.10
 
 executable absint
   main-is:             Main.hs
-  -- other-modules:       Lexer, Parser
+  other-modules:       Lexer, Parser
   -- other-extensions:    
   build-depends:       base >=4.9 && <4.10
                      , array, containers, transformers
