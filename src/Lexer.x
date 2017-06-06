@@ -64,15 +64,16 @@ tok' f (AlexPn _ l c,_,_,s) i = getFilePath >>= (\fp -> return $ (f (Pos fp l c)
 tok :: (Pos -> Token) -> AlexAction Token
 tok x = tok' $ \p _ -> x p
 
-reserved = [ ( "int"    , TokenTInt    )
-           , ( "void"   , TokenTVoid   )
-           , ( "bool"   , TokenTBool   )
+reserved = [ ( "int"    , TokenTInt   )
+           , ( "void"   , TokenTVoid  )
+           , ( "bool"   , TokenTBool  )
            , ( "if"     , TokenIf     )
            , ( "else"   , TokenElse   )
            , ( "return" , TokenReturn )
            , ( "for"    , TokenFor    )
            , ( "while"  , TokenWhile  )
            , ( "goto"   , TokenGoto   )
+           , ( "break"  , TokenBreak  )
            ]
 
 tok_read :: ((Integer, Pos) -> Token) -> AlexAction Token
@@ -159,6 +160,7 @@ data Token =
     | TokenWhile          Pos
     | TokenFor            Pos
     | TokenGoto           Pos
+    | TokenBreak          Pos
     | TokenEqual          Pos
     | TokenNotEqual       Pos
     | TokenLower          Pos
@@ -204,6 +206,7 @@ instance Show Token where
     show (TokenWhile _)          = "while"
     show (TokenFor _)            = "for"
     show (TokenGoto _)           = "goto"
+    show (TokenBreak _)          = "break"
     show (TokenEqual _)          = "=="
     show (TokenNotEqual _)       = "!="
     show (TokenLower _)          = "<"

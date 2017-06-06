@@ -75,6 +75,7 @@ instance Show (Type a) where
 data Instr' a =
       Iblock   [Ann Instr a]
     | Inop
+    | Ibreak
     | Idecl    (Ann Type a) [(Ann Ident a, Maybe (Ann Expr a))]
     | Iassign  [(Ann Ident a, Ann Expr a)]
     | Icall    (Ann Ident a) [Ann Expr a]
@@ -90,6 +91,7 @@ format' n (Iblock lst)   = (indent n) ++ "{\n"
                            ++ (concatMap ((++ "\n") . format (n + 1) . fst) lst)
                            ++ (indent n) ++ "}"
 format' n Inop           = (indent n) ++ ";"
+format' n Ibreak         = (indent n) ++ "break;"
 format' n (Idecl t dcls) = (indent n) ++ show (fst t) ++ " " ++
                            (intercalate ", " $ map showDecl dcls) ++ ";"
  where showDecl ((Ident s, _), Nothing) = s

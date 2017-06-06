@@ -13,9 +13,9 @@ import AST
 
 %token
     intval      { TokenInt            $$ }
-    int         { TokenTInt            $$ }
-    void        { TokenTVoid           $$ }
-    bool        { TokenTBool           $$ }
+    int         { TokenTInt           $$ }
+    void        { TokenTVoid          $$ }
+    bool        { TokenTBool          $$ }
     identt      { TokenIdent          $$ }
     '&&'        { TokenAnd            $$ }
     '||'        { TokenOr             $$ }
@@ -26,6 +26,7 @@ import AST
     for         { TokenFor            $$ }
     while       { TokenWhile          $$ }
     goto        { TokenGoto           $$ }
+    break       { TokenBreak          $$ }
     '++'        { TokenPostIncr       $$ }
     '--'        { TokenPostDecr       $$ }
     '=='        { TokenEqual          $$ }
@@ -97,6 +98,7 @@ instr : assignlist                          { (Iassign $1, snd $ fst $ head $1) 
       | return expr                         { (Ireturn (Just $2), $1) }
       | goto identt                         { (Igoto $ readIdent $2, $1) }
       | type decllist                       { (Idecl $1 $2, snd $1) }
+      | break                               { (Ibreak, $1) }
 
 linstr :: { Ann Instr Pos }
 linstr : instr            { (Instr Nothing $1, snd $1) }
