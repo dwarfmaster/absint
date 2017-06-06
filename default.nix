@@ -17,6 +17,7 @@ let
           algebraic-graphs array base containers mtl transformers
         ];
         executableToolDepends = [ alex happy ];
+        buildDepends = with pkgs; [ cabal-install ];
         license = stdenv.lib.licenses.mit;
       };
 
