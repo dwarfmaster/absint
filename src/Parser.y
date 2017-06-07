@@ -173,9 +173,7 @@ type : void  { (Tvoid, $1) }
      | bool  { (Tbool, $1) }
 
 toplevel :: { Ann TopLevel Pos }
-toplevel : linstr ';'                              { (Tinstr $1, snd $1) }
-         | lblock                                  { (Tinstr $1, snd $1) }
-         | lcontrol                                { (Tinstr $1, snd $1) }
+toplevel : type decllist ';'                       { (TdeclVar $1 $2, snd $1) }
          | type identt '(' paramlist ')' ';'       { (TdeclFun $1 (readIdent $2) $4, snd $1) }
          | type identt '(' paramlist ')' gen_instr { (TimplFun $1 (readIdent $2) $4 $6, snd $1) }
 

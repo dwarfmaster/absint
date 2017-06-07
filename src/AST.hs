@@ -124,12 +124,12 @@ instance Show (Instr a) where
     show = format 0
 
 data TopLevel a =
-      Tinstr   (Ann Instr a)
+      TdeclVar (Ann Type a) [(Ann Ident a, Maybe (Ann Expr a))]
     | TdeclFun (Ann Type a) (Ann Ident a) [(Ann Ident a, Ann Type a)]
     | TimplFun (Ann Type a) (Ann Ident a)
                [(Ann Ident a, Ann Type a)] (Ann Instr a)
 instance Show (TopLevel a) where
-    show (Tinstr i) = show $ fst i
+    show (TdeclVar t l) = show $ Idecl t l
     show (TdeclFun tp (Ident nm, _) prms) = (show $ fst tp) ++ nm ++ "(" ++
                                             (intercalate ", "
                                                 $ map (\((Ident n, _), (t,_)) -> (show t) ++ " " ++ n) prms)
