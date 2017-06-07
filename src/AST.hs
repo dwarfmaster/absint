@@ -87,9 +87,10 @@ data Instr' a =
 indent :: Int -> String
 indent n = concat $ take n $ repeat "\t"
 format' :: Int -> Instr' a -> String
-format' n (Iblock lst)   = (indent n) ++ "{\n"
-                           ++ (concatMap ((++ "\n") . format (n + 1) . fst) lst)
-                           ++ (indent n) ++ "}"
+format' 0 (Iblock lst)   = format' 1 (Iblock lst) -- should never happen
+format' n (Iblock lst)   = (indent $ n - 1) ++ "{\n"
+                           ++ (concatMap ((++ "\n") . format n . fst) lst)
+                           ++ (indent $ n - 1) ++ "}"
 format' n Inop           = (indent n) ++ ";"
 format' n Ibreak         = (indent n) ++ "break;"
 format' n (Idecl t dcls) = (indent n) ++ show (fst t) ++ " " ++
@@ -107,8 +108,8 @@ format' n (Iif ec i1 i2) = (indent n) ++ "if(" ++ (show $ fst ec) ++ ")\n"
                            ++ (format (n+1) $ fst i2)
 format' n (Iwhile e i) = (indent n) ++ "while(" ++ (show $ fst e) ++ ")\n"
                          ++ (format (n+1) $ fst i)
-format' n (Ifor i1 e i2 bd) = (indent n) ++ "for(" ++ (show $ fst i1) ++ (show $ fst e) ++ ";"
-                              ++ (show $ fst i2) ++ ")\n" ++ (show $ fst bd)
+format' n (Ifor i1 e i2 bd) = (indent n) ++ "for(" ++ (show $ fst i1) ++ (show $ fst e) ++ ";\n"
+                              ++ (format (n + 1) $ fst i2) ++ ")\n" ++ (format (n+1) $ fst bd)
 format' n (Igoto (Ident s, _)) = (indent n) ++ "goto " ++ s ++ ";"
 format' n (Ireturn Nothing) = (indent n) ++ "return;"
 format' n (Ireturn (Just e)) = (indent n) ++ "return " ++ (show $ fst e) ++ ";"
@@ -130,15 +131,15 @@ data TopLevel a =
                [(Ann Ident a, Ann Type a)] (Ann Instr a)
 instance Show (TopLevel a) where
     show (TdeclVar t l) = show $ Idecl t l
-    show (TdeclFun tp (Ident nm, _) prms) = (show $ fst tp) ++ nm ++ "(" ++
+    show (TdeclFun tp (Ident nm, _) prms) = (show $ fst tp) ++ " " ++ nm ++ "(" ++
                                             (intercalate ", "
                                                 $ map (\((Ident n, _), (t,_)) -> (show t) ++ " " ++ n) prms)
-                                            ++ ")"
-    show (TimplFun tp (Ident nm, _) prms bd) = (show $ fst tp) ++ nm ++ "(" ++
+                                            ++ ");"
+    show (TimplFun tp (Ident nm, _) prms bd) = (show $ fst tp) ++ " " ++ nm ++ "(" ++
                                                (intercalate ", "
                                                    $ map (\((Ident n, _), (t,_)) -> (show t) ++ " " ++ n)
                                                          prms)
-                                               ++ ")\n\t" ++ (show $ fst bd)
+                                               ++ ")\n" ++ (format 1 $ fst bd)
 
 type File = [Ann TopLevel Pos]
 showFile :: File -> String
