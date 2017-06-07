@@ -34,18 +34,19 @@ data EdgeExpr =
       EEconst Integer
     | EEvar   EVarID
     | EInter  EdgeExpr EdgeExpr -- Support for random integers in interval
-    | EEbinop (Binop ()) EdgeExpr EdgeExpr
-    | EEunop  (Unop  ()) EdgeExpr
+    | EEbinop (Binop Pos) EdgeExpr EdgeExpr
+    | EEunop  (Unop  Pos) EdgeExpr
 
 type FunID = Integer
 data Function = Function
-    { function_id     :: FunID
-    , function_name   :: String
-    , function_entry  :: NodeID
-    , function_exit   :: NodeID
-    , function_params :: [EVarID]
-    , function_ret    :: EVarID -- If function doesn't return anything,
-                                -- function_ret must be of type void
+    { function_id       :: FunID
+    , function_name     :: String
+    , function_entry    :: NodeID
+    , function_exit     :: NodeID
+    , function_params   :: [EVarID]
+    , function_ret      :: EVarID -- If function doesn't return anything,
+                                  -- function_ret must be of type void
+    , function_ret_type :: Type ()
     }
 
 data EdgeInst =
