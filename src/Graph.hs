@@ -1,6 +1,10 @@
 
 module Graph where
 import AST (Pos, Type, Unop, Binop)
+import Data.Graph.Inductive.Graph
+import qualified Data.Graph.Inductive.PatriciaTree as PT
+import qualified Data.GraphViz as GV
+import qualified Data.GraphViz.Commands as GVC
 
 type NodeID = Integer
 data NodeLabel = NodeLabel
@@ -67,4 +71,18 @@ data Program = Program
     , program_init_exit  :: NodeID
     , program_functions  :: [Function]
     } deriving (Show)
+
+makeFGL :: Graph gr => Program -> gr String String
+makeFGL prg = mkGraph nodes edges
+ where nodes = zip  (map (fromInteger . node_id) $ program_nodes prg)
+                    (map (show . node_pos) $ program_nodes prg)
+       edges = zip3 (map (fromInteger . edge_src) $ program_edges prg)
+                    (map (fromInteger . edge_dst) $ program_edges prg)
+                    (map (show . edge_inst) $ program_edges prg)
+
+-- Write a program to the standart output in dot format
+writeDot :: Program -> IO ()
+writeDot prg = GVC.runGraphviz dot GV.Pdf "graph.pdf" >> return ()
+ where fgl = makeFGL prg :: PT.Gr String String
+       dot = GV.graphToDot GV.nonClusteredParams fgl
 

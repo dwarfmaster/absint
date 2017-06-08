@@ -4,8 +4,9 @@ let
 
   inherit (nixpkgs) pkgs;
 
-  f = { mkDerivation, alex, algebraic-graphs, array, base
+  f = { mkDerivation, alex, fgl, array, base
       , containers, happy, mtl, stdenv, transformers
+      , graphviz
       }:
       mkDerivation {
         pname = "absint";
@@ -14,7 +15,7 @@ let
         isLibrary = false;
         isExecutable = true;
         executableHaskellDepends = [
-          algebraic-graphs array base containers mtl transformers
+          array base containers mtl transformers fgl graphviz
         ];
         executableToolDepends = [ alex happy ];
         buildDepends = with pkgs; [ cabal-install ];
