@@ -406,7 +406,18 @@ buildTopLevel n2 (TimplFun tp nm@(Ident name,_) prms (i, _)) = do
     _  <- buildTopLevel n2 (TdeclFun tp nm prms)
     nb <- getFun function_entry name
     ne <- getFun function_exit  name
-    n  <- buildInstr nb nb i
+    rt <- getFun function_ret   name
+    n  <- buildInstr ne ne i
+    s  <- get
+    -- Handling returns
+    forM_ (st_returns s) $ \(nd, me) -> case me of
+        Nothing -> newEdge nd ne EInop
+        Just e  -> newEdge nd ne (EIassign rt e)
+    -- Handling gotos
+    let labels = st_labels s
+    forM_ (st_gotos s) $ \(lbl,src) -> newEdge src (labels ! lbl) EInop
+    s  <- get
+    put $ s { st_returns = [], st_labels = M.empty, st_gotos = [] }
     popBindings
     _  <- newEdge nb n EInop
     return n2
