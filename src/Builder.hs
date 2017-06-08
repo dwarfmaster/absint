@@ -6,7 +6,6 @@ import Control.Monad (foldM)
 import Control.Monad.State
 import Data.Map (Map, (!))
 import qualified Data.Map as M
-import Debug.Trace
 
 build_graph :: File -> Program
 build_graph file = fst $ runState (buildFile file) initGraphState
@@ -72,7 +71,7 @@ setInitExit nid = updateProgram $ \p -> p { program_init_exit = nid }
 
 
 addVar :: EVarID -> String -> Type () -> Pos -> Program -> Program
-addVar vid name tp pos prg = prg { program_vars = var : (program_vars prg) }
+addVar vid name tp pos prg = prg { program_vars = var : filter ((/= vid) . edge_var_id) (program_vars prg) }
  where var = EdgeVar vid name tp pos
 
 addTopVar :: EVarID -> String -> Type () -> Pos -> Program -> Program
@@ -88,6 +87,11 @@ newVar name tp pos = do
     updateProgram $ addVar vid name tp pos
     updateBinding $ M.insert name vid
     return vid
+
+hasVar :: String -> St Bool
+hasVar name = do
+    s <- get
+    return $ M.member name $ head $ st_bindings s
 
 newTopVar :: String -> Type () -> Pos -> St EVarID
 newTopVar name tp pos = do
@@ -177,7 +181,6 @@ hasFunction name = get >>=
 getFun :: (Function -> a) -> String -> St a
 getFun f name = get >>=
     \s -> return $ f
-          $ trace "getFun"
           $ head $ filter ((== name) . function_name)
           $ program_functions $ st_program s
 
@@ -244,10 +247,17 @@ buildInstr' :: NodeID -> NodeID -> NodeID -> Instr' Pos -> St ()
 buildInstr' n1 n2 lout (Iblock []) = buildInstr' n1 n2 lout Inop
 buildInstr' n1 n2 lout (Iblock lst) = do
     pushBindings
+    forM_ lst handleDecl'
     n <- foldM (\n (i,_) -> buildInstr n lout i) n2 $ reverse lst
     _ <- newEdge n1 n EInop
     popBindings
     return ()
+ where handleDecl' :: Ann Instr Pos -> St ()
+       handleDecl' (Instr _ (i,_), _) = handleDecl i
+       handleDecl :: Instr' Pos -> St ()
+       handleDecl (Idecl (tp, _) lst) =
+           forM_ lst $ \((Ident name, pos), _) -> newVar name (fmap (const ()) tp) pos >> return ()
+       handleDecl _ = return ()
 
 buildInstr' n1 n2 lout Inop = 
     if n1 == n2 then return ()
@@ -263,12 +273,12 @@ buildInstr' n1 n2 lout (Idecl (tp, _) lst) = do
     _  <- newEdge n1 n3 EInop
     return ()
  where handleDecl n2 ((Ident name, pos), Nothing) = do
-           nv <- newVar name (fmap (const ()) tp) pos
+           nv <- getVar name
            n1 <- newNode pos Nothing
            _  <- newEdge n1 n2 (EIassign nv (EEconst 0))
            return n1
        handleDecl n2 ((Ident name, pos), Just (e, epos)) = do
-           nv        <- newVar name (fmap (const ()) tp) pos
+           nv        <- getVar name
            n2'       <- newNode pos Nothing
            (n1', ne) <- buildExpr n2' e
            _         <- newEdge n2' n2 (EIassign nv ne)
