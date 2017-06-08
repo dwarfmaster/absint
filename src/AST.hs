@@ -1,4 +1,6 @@
 
+{-# LANGUAGE DeriveFunctor #-}
+
 module AST where
 import Data.List (intercalate)
 
@@ -27,6 +29,7 @@ data Binop a =
     | Bge
     | Bor
     | Band
+    deriving (Functor)
 instance Show (Binop a) where
     show Bplus  = "+"
     show Btimes = "*"
@@ -45,6 +48,7 @@ instance Show (Binop a) where
 data Unop a =
       Uneg
     | Unot
+    deriving (Functor)
 instance Show (Unop a) where
     show Uneg = "-"
     show Unot = "!"
@@ -67,6 +71,7 @@ data Type a =
       Tint
     | Tvoid
     | Tbool
+    deriving (Functor)
 instance Show (Type a) where
     show Tint  = "int"
     show Tvoid = "void"

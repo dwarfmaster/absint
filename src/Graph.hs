@@ -10,7 +10,7 @@ data NodeLabel = NodeLabel
                                  -- in the source code
     , node_out   :: [EdgeID]
     , node_in    :: [EdgeID]
-    }
+    } deriving (Show)
 
 type EdgeID = Integer
 data EdgeLabel = EdgeLabel
@@ -18,7 +18,7 @@ data EdgeLabel = EdgeLabel
     , edge_src  :: NodeID
     , edge_dst  :: NodeID
     , edge_inst :: EdgeInst
-    }
+    } deriving (Show)
 
 -- We accepts variables of type void, but their evaluation result
 -- in a bottom expression
@@ -28,7 +28,7 @@ data EdgeVar = EdgeVar
     , edge_var_name :: String
     , edge_var_type :: Type ()
     , edge_var_pos  :: Pos
-    }
+    } deriving (Show)
 
 data EdgeExpr =
       EEconst Integer
@@ -36,6 +36,7 @@ data EdgeExpr =
     | EInter  EdgeExpr EdgeExpr -- Support for random integers in interval
     | EEbinop (Binop Pos) EdgeExpr EdgeExpr
     | EEunop  (Unop  Pos) EdgeExpr
+    deriving (Show)
 
 type FunID = Integer
 data Function = Function
@@ -47,7 +48,7 @@ data Function = Function
     , function_ret      :: EVarID -- If function doesn't return anything,
                                   -- function_ret must be of type void
     , function_ret_type :: Type ()
-    }
+    } deriving (Show)
 
 data EdgeInst =
       EIassign EVarID EdgeExpr
@@ -55,13 +56,15 @@ data EdgeInst =
     | EIcall   FunID
     | EIguard  EdgeExpr
     | EIassert EdgeExpr
+    deriving (Show)
 
 data Program = Program
-    { program_vars :: [EdgeVar]
-    , program_nodes :: [NodeLabel]
-    , program_edges :: [EdgeLabel]
+    { program_vars       :: [EdgeVar]
+    , program_top_vars   :: [EdgeVar]
+    , program_nodes      :: [NodeLabel]
+    , program_edges      :: [EdgeLabel]
     , program_init_entry :: NodeID
     , program_init_exit  :: NodeID
     , program_functions  :: [Function]
-    }
+    } deriving (Show)
 
