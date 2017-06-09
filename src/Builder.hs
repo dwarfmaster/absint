@@ -17,13 +17,15 @@ data GraphState = GraphState
     , st_returns  :: [(NodeID, Maybe EdgeExpr)]
     , st_labels   :: Map String NodeID
     , st_gotos    :: [(String,NodeID)]
+    , st_outs     :: Map NodeID [EdgeID]
+    , st_ins      :: Map NodeID [EdgeID]
     , st_program  :: Program
     }
 
 type St = State GraphState
 
 initGraphState :: GraphState
-initGraphState = GraphState 0 [M.empty] [] M.empty [] $
+initGraphState = GraphState 0 [M.empty] [] M.empty [] M.empty M.empty $
     Program [] [] [] [] 0 0 []
 
 addReturn :: NodeID -> Maybe EdgeExpr -> St ()
@@ -35,6 +37,16 @@ addGoto :: String -> NodeID -> St ()
 addGoto label from = do
     s <- get
     put $ s { st_gotos = (label,from) : (st_gotos s) }
+
+updateOuts :: (Map NodeID [EdgeID] -> Map NodeID [EdgeID]) -> St ()
+updateOuts f = do
+    s <- get
+    put $ s { st_outs = f $ st_outs s }
+
+updateIns :: (Map NodeID [EdgeID] -> Map NodeID [EdgeID]) -> St ()
+updateIns f = do
+    s <- get
+    put $ s { st_ins = f $ st_ins s }
 
 updateProgram :: (Program -> Program) -> St ()
 updateProgram f = do
@@ -135,11 +147,15 @@ newNode :: Pos -> Maybe String -> St NodeID
 newNode pos Nothing = do
     nid <- newNodeID
     updateProgram $ addNode nid pos Nothing
+    updateIns  $ M.insert nid []
+    updateOuts $ M.insert nid []
     return nid
 newNode pos (Just label) = do
     nid <- newNodeID
     updateProgram $ addNode nid pos $ Just label
     updateLabels  $ M.insert label nid
+    updateIns  $ M.insert nid []
+    updateOuts $ M.insert nid []
     return nid
 
 
@@ -155,6 +171,8 @@ newEdge :: NodeID -> NodeID -> EdgeInst -> St EdgeID
 newEdge src dst inst = do
     eid <- newEdgeID
     updateProgram $ addEdge eid src dst inst
+    updateIns  $ M.update (\l -> Just $ eid : l) dst
+    updateOuts $ M.update (\l -> Just $ eid : l) src
     return eid
 
 
@@ -430,6 +448,11 @@ buildFile l@((_,pos) : _) = do
     setInitEntry n1
     setInitExit  n2
     s <- get
-    return $ st_program s
+    let prg  = st_program s
+    let outs = st_outs s
+    let ins  = st_ins  s
+    let nds  = program_nodes prg
+    let nds2 = map (\nd -> nd { node_out = outs ! (node_id nd), node_in = ins ! (node_id nd) }) nds
+    return $ prg { program_nodes = nds2 }
 
 
