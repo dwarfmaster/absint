@@ -86,9 +86,8 @@ addVar :: EVarID -> String -> Type () -> Pos -> Program -> Program
 addVar vid name tp pos prg = prg { program_vars = var : filter ((/= vid) . edge_var_id) (program_vars prg) }
  where var = EdgeVar vid name tp pos
 
-addTopVar :: EVarID -> String -> Type () -> Pos -> Program -> Program
-addTopVar vid name tp pos prg = prg { program_top_vars = var : (program_top_vars prg) }
- where var = EdgeVar vid name tp pos
+addTopVar :: EVarID -> Program -> Program
+addTopVar vid prg = prg { program_top_vars = vid : (program_top_vars prg) }
 
 newVarID :: St EVarID
 newVarID = newID
@@ -107,9 +106,8 @@ hasVar name = do
 
 newTopVar :: String -> Type () -> Pos -> St EVarID
 newTopVar name tp pos = do
-    vid <- newVarID
-    updateProgram $ addTopVar vid name tp pos
-    updateBinding $ M.insert name vid
+    vid <- newVar name tp pos
+    updateProgram $ addTopVar vid
     return vid
 
 newVar' :: Type () -> Pos -> St EVarID

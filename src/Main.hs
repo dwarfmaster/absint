@@ -3,6 +3,7 @@ module Main where
 import Parser
 import Builder
 import Graph
+import Iterator
 
 main :: IO ()
 main = do

@@ -6,7 +6,7 @@ let
 
   f = { mkDerivation, alex, fgl, array, base
       , containers, happy, mtl, stdenv, transformers
-      , graphviz
+      , graphviz, hashtables, hashable
       }:
       mkDerivation {
         pname = "absint";
@@ -15,7 +15,8 @@ let
         isLibrary = false;
         isExecutable = true;
         executableHaskellDepends = [
-          array base containers mtl transformers fgl graphviz
+          array base containers mtl transformers fgl
+          graphviz hashtables
         ];
         executableToolDepends = [ alex happy ];
         buildDepends = with pkgs; [ cabal-install ];

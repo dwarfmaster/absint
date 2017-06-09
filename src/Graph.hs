@@ -64,13 +64,25 @@ data EdgeInst =
 
 data Program = Program
     { program_vars       :: [EdgeVar]
-    , program_top_vars   :: [EdgeVar]
+    , program_top_vars   :: [EVarID] -- Included in program vars
     , program_nodes      :: [NodeLabel]
     , program_edges      :: [EdgeLabel]
     , program_init_entry :: NodeID
     , program_init_exit  :: NodeID
     , program_functions  :: [Function]
     } deriving (Show)
+
+getNodeByID :: Program -> NodeID -> NodeLabel
+getNodeByID prg nid = head $ filter ((== nid) . node_id) $ program_nodes prg
+
+getEdgeByID :: Program -> EdgeID -> EdgeLabel
+getEdgeByID prg eid = head $ filter ((== eid) . edge_id) $ program_edges prg
+
+getFunByName :: Program -> String -> Function
+getFunByName prg name = head $ filter ((== name) . function_name) $ program_functions prg
+
+getFunByID :: Program -> FunID -> Function
+getFunByID prg fid = head $ filter ((== fid) . function_id) $ program_functions prg
 
 makeFGL :: Graph gr => Program -> gr String String
 makeFGL prg = mkGraph nodes edges

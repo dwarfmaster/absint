@@ -19,7 +19,7 @@ executable absint
   -- other-extensions:    
   build-depends:       base >=4.9 && <4.10
                      , array, containers, transformers
-                     , mtl, fgl, graphviz
+                     , mtl, fgl, graphviz, hashtables, hashable
   hs-source-dirs:      src
   ghc-options:         -Wall -Wno-unused-matches -Wno-name-shadowing
   build-tools:         happy, alex
