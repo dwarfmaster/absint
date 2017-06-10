@@ -2,14 +2,14 @@
 module Iterator where
 import Graph
 import Data.Map (Map)
+import qualified Data.Map as M
 
-import Control.Monad (forM_, when)
+import Control.Monad (forM_, forM)
 import Control.Monad.ST
 import qualified Data.STRef as R
 import qualified Data.HashTable.ST.Basic as HT
 import qualified Data.Hashable as HSH
 import qualified Data.Sequence as S
-type HashTable s k v = HT.HashTable s k v
 
 class Abstract a where
     bottom   :: a
@@ -23,80 +23,68 @@ class Abstract a where
     backport :: [EVarID] -> a -> a -> a
 
 iterate :: Abstract a => Program -> Map NodeID a
-iterate prg = undefined
+iterate program = M.fromList $ runST $ worklist program >>= tolist
+ where tolist :: HT.HashTable s NodeID a -> ST s [(NodeID, a)]
+       tolist = HT.foldM (\l e -> return $ e : l) []
 
-queryOrInit :: (Eq k, HSH.Hashable k) => v -> k -> HashTable s k v -> ST s v
+queryOrInit :: (Eq k, HSH.Hashable k) => v -> k -> HT.HashTable s k v -> ST s v
 queryOrInit def key hash = do
     lkt <- HT.lookup hash key
     case lkt of
      Nothing -> HT.insert hash key def >> return def
      Just vl -> return vl
 
-type Return = (NodeID, [EVarID])
-
 while :: Monad m => m Bool -> m () -> m ()
 while condition action = condition >>= \b -> if b then action >> while condition action else return ()
 
-worklist :: Abstract a => Program -> ST s (HashTable s NodeID a)
+type Queue s      = R.STRef s (S.Seq NodeID)
+type Mark s       = HT.HashTable s NodeID Bool
+type Count s      = HT.HashTable s NodeID Integer
+type Return s     = HT.HashTable s NodeID (Maybe (NodeID, Maybe EdgeID))
+type AtReturn s a = HT.HashTable s EdgeID a
+type AbsTable s a = HT.HashTable s NodeID a
+worklist :: Abstract a => Program -> ST s (HT.HashTable s NodeID a)
 worklist program = do
     -- Global variables
-    queue    <- R.newSTRef S.empty
+    queue    <- R.newSTRef S.empty -- :: Queue s
     asserts  <- R.newSTRef []
-    inQueue  <- HT.new
-    nbSeens  <- HT.new
-    abstract <- HT.new
-    returns  <- HT.new
-    toclear  <- HT.new
+    inQueue  <- HT.new             -- :: Mark s
+    nbSeens  <- HT.new             -- :: Count s
+    abstract <- HT.new             -- :: AbsTable s a
+    returns  <- HT.new             -- :: Return s
+    atReturn <- HT.new             -- :: AtReturn s a
 
     -- Initialisation
     enqueue queue inQueue $ program_init_entry program
     let main_entry = function_entry $ getFunByName program "main"
-    addReturn returns (program_init_exit program) main_entry $ program_top_vars program
+    setReturn returns (program_init_exit program) main_entry Nothing
 
+    let update = updateNode program queue inQueue abstract
+    let absEdge = abstractEdge program queue inQueue returns abstract asserts atReturn
     while (emptyNQueue queue) $ do
-        Just eid <- dequeue queue inQueue
-        let edge = getEdgeByID program eid
-        let src  = edge_src edge
-        let dst  = edge_dst edge
+        Just dst <- dequeue queue inQueue
 
         -- Widening
-        incrSeen nbSeens eid
-        count <- queryOrInit 0 eid nbSeens
-        if count == 3 then updateNode program queue inQueue abstract toclear src widen
-        else return ()
+        incrSeen nbSeens dst
+        count <- queryOrInit 0 dst nbSeens
+        let final = if count == 3 then widen else id
 
         -- Abstract instruction
-        let update = updateNode program queue inQueue abstract toclear dst
-        absdst <- queryOrInit bottom dst abstract
-        case edge_inst edge of
-         EIassign vid expr -> update $ assign vid expr
-         EInop             -> update $ id
-         EIguard expr      -> update $ guard expr
-
-         EIcall fun        -> do let function = getFunByID program fun
-                                 let beg = function_entry function
-                                 let end = function_exit  function
-                                 let ret = function_ret   function
-                                 -- Call act as a INop to the beginning node
-                                 updateNode program queue inQueue abstract toclear beg id
-                                 HT.insert toclear beg True
-                                 -- Setup return
-                                 addReturn returns end dst $ ret : program_top_vars program
-
-         EIassert expr     -> do update $ guard expr
-                                 absdst' <- queryOrInit bottom dst abstract
-                                 if isEq absdst absdst' then return ()
-                                 else R.readSTRef asserts >>= \l -> R.writeSTRef asserts (expr : l)
+        update dst final $ absEdge dst
 
         -- Handle returns
         mret <- popReturn returns dst
         case mret of
-         Nothing          -> return ()
-         Just (node,vars) -> queryOrInit bottom dst abstract >>=
-                             \a -> updateNode program queue inQueue abstract toclear node $ backport vars a
+         Nothing   -> return ()
+         Just (node,Nothing) -> enqueue queue inQueue node
+         Just (node,Just edge) -> do
+             dst_abs <- queryOrInit bottom dst  abstract
+             old_abs <- queryOrInit bottom edge atReturn
+             if isEq dst_abs old_abs then return ()
+                                     else enqueue queue inQueue node
 
     return abstract
- where dequeue :: R.STRef s (S.Seq EdgeID) -> HT.HashTable s EdgeID Bool -> ST s (Maybe EdgeID)
+ where dequeue :: Queue s -> Mark s -> ST s (Maybe EdgeID)
        dequeue queue inQueue = do
            q <- R.readSTRef queue
            case S.viewr q of
@@ -106,53 +94,76 @@ worklist program = do
                 HT.insert inQueue h False
                 return $ Just h
 
-       enqueue :: R.STRef s (S.Seq EdgeID) -> HT.HashTable s EdgeID Bool -> EdgeID -> ST s ()
-       enqueue queue inQueue e = do
-           b <- queryOrInit False e inQueue
+       enqueue :: Queue s -> Mark s -> NodeID -> ST s ()
+       enqueue queue inQueue n = do
+           b <- queryOrInit False n inQueue
            if b then return ()
-                else R.readSTRef queue >>= \q -> R.writeSTRef queue $ e S.<| q
+                else R.readSTRef queue >>= \q -> R.writeSTRef queue $ n S.<| q
 
-       emptyNQueue :: R.STRef s (S.Seq EdgeID) -> ST s Bool
+       emptyNQueue :: Queue s -> ST s Bool
        emptyNQueue queue = R.readSTRef queue >>= \q -> return $ not $ S.null q
 
-       incrSeen :: HT.HashTable s EdgeID Integer -> EdgeID -> ST s ()
-       incrSeen nbSeens edge = do
-           v <- queryOrInit 0 edge nbSeens
-           HT.insert nbSeens edge $ v + 1
+       incrSeen :: Count s -> NodeID -> ST s ()
+       incrSeen nbSeens node = do
+           v <- queryOrInit 0 node nbSeens
+           HT.insert nbSeens node $ v + 1
 
-       addReturn :: HT.HashTable s NodeID [Return] -> NodeID -> NodeID -> [EVarID] -> ST s ()
-       addReturn hash key v1 v2 = do
-           val <- queryOrInit [] key hash
-           HT.insert hash key $ (v1, v2) : val
+       setReturn :: Return s -> NodeID -> NodeID -> Maybe EdgeID -> ST s ()
+       setReturn hash key v1 v2 = HT.insert hash key $ Just (v1, v2)
 
-       popReturn :: HT.HashTable s NodeID [Return] -> NodeID -> ST s (Maybe Return)
-       popReturn hash key = do
-           lkt <- HT.lookup hash key
-           case lkt of
-               Nothing      -> return Nothing
-               Just []      -> return Nothing
-               Just (h : t) -> HT.insert hash key t >> return (Just h)
-       
+       popReturn :: Return s -> NodeID -> ST s (Maybe (NodeID, Maybe EdgeID))
+       popReturn hash key = queryOrInit Nothing key hash
+
        isEq :: Abstract a => a -> a -> Bool
        isEq a1 a2 = subset a1 a2 && subset a2 a1
 
-       updateNode :: Abstract a => Program -> R.STRef s (S.Seq EdgeID)
-                  -> HT.HashTable s EdgeID Bool -> HT.HashTable s NodeID a
-                  -> HT.HashTable s NodeID Bool
-                  -> NodeID -> (a -> a) -> ST s ()
-       updateNode program queue inQueue abstract toClear n f = do
-           must_clear <- queryOrInit False n toClear
-           a <- if must_clear then return bottom
-                              else queryOrInit bottom n abstract
-           let a' = join a $ f a
+       readEdge :: Abstract a => Program -> AbsTable s a
+                -> EdgeID -> ST s (a, EdgeInst)
+       readEdge program abstract eid = do
+           let edge = getEdgeByID program eid
+           let src  = edge_src edge
+           abst <- queryOrInit bottom src abstract
+           return (abst, edge_inst edge)
+
+       abstractEdge :: Abstract a => Program -> Queue s -> Mark s -> Return s
+                    -> AbsTable s a -> R.STRef s [EdgeExpr] -> AtReturn s a
+                    -> NodeID -> EdgeID -> (a, EdgeInst) -> ST s a
+       abstractEdge program queue inQueue returns abstract asserts retabs dst eid (abst, inst) =
+           case inst of
+            EIassign vid expr -> return $ assign vid expr abst
+            EInop             -> return $ abst
+            EIguard expr      -> return $ guard expr abst
+
+            EIcall fun        -> do
+                let function = getFunByID program fun
+                let beg      = function_entry function
+                let end      = function_exit  function
+                let ret      = function_ret   function
+                HT.insert abstract beg bottom
+                enqueue queue inQueue beg
+                setReturn returns end dst $ Just eid
+                reta <- queryOrInit bottom eid retabs
+                return $ backport (ret : program_top_vars program) reta abst
+
+            EIassert expr     -> do
+                let a' = guard expr abst
+                if isEq a' abst then return ()
+                                else R.readSTRef asserts >>= \l -> R.writeSTRef asserts (expr : l)
+                return a'
+
+       updateNode :: Abstract a => Program -> Queue s -> Mark s -> HT.HashTable s NodeID a
+                  -> NodeID -> (a -> a) -> (EdgeID -> (a, EdgeInst) -> ST s a) -> ST s ()
+       updateNode program queue inQueue abstract nid final f = do
+           a <- queryOrInit bottom nid abstract
+           let node = getNodeByID program nid
+           let ins  = node_in node
+           ains <- forM ins $ \eid -> readEdge program abstract eid >>= \r -> f eid r
+           let a' = final $ foldr (\a1 a2 -> join a1 a2) bottom ains
            if isEq a a' then return ()
            else do
-               HT.insert abstract n $ a'
-               let eds = node_out $ getNodeByID program n
-               forM_ eds $ \eid -> do enqueue queue inQueue eid
-                                      let edge = getEdgeByID program eid
-                                      when must_clear $ HT.insert toClear (edge_dst edge) True
+               HT.insert abstract nid $ a'
+               let eds = node_out $ getNodeByID program nid
+               forM_ eds $ \eid -> enqueue queue inQueue $ edge_dst $ getEdgeByID program eid
                return ()
-           HT.insert toClear n False
 
 
