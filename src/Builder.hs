@@ -347,6 +347,7 @@ buildInstr' n1 n2 lout (Iwhile (e,pe) (i,pi)) = do
     _        <- newEdge n3 n4 (EIguard ne)
     _        <- newEdge n3 n2 (EIguard $ EEunop Unot ne)
     _        <- newEdge n1 n1' EInop
+    _        <- newEdge n5 n1' EInop
     return ()
 
 --                      G!e
