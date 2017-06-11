@@ -390,17 +390,22 @@ buildInstr n lout (Instr (Just (Ident l,_)) (i,pos)) = do
 
 
 
+step1TopLevel :: TopLevel Pos -> St ()
+step1TopLevel (TdeclVar (tp, _) lst) = do
+    forM_ lst $ \((Ident name, pos), _) -> newTopVar name (fmap undefined tp) pos
+step1TopLevel _ = return ()
+
 buildTopLevel :: NodeID -> TopLevel Pos -> St NodeID
 buildTopLevel n2 (TdeclVar (tp, _) lst) = do
     n1 <- foldM handleDecl n2 $ reverse lst
     return n1
  where handleDecl n2 ((Ident name, pos), Nothing) = do
-           nv <- newTopVar name (fmap (const ()) tp) pos
+           nv <- getVar name
            n1 <- newNode pos Nothing
            _  <- newEdge n1 n2 (EIassign nv (EEconst 0))
            return n1
        handleDecl n2 ((Ident name, pos), Just (e, epos)) = do
-           nv        <- newTopVar name (fmap (const ()) tp) pos
+           nv        <- getVar name
            n2'       <- newNode pos Nothing
            (n1', ne) <- buildExpr n2' e
            _         <- newEdge n2' n2 (EIassign nv ne)
@@ -442,7 +447,9 @@ buildFile :: File -> St Program
 buildFile [] = return $ Program [] [] [] [] 0 0 []
 buildFile l@((_,pos) : _) = do
     n2 <- newNode pos Nothing
-    n1 <- foldM buildTopLevel n2 $ map fst l
+    let l' = map fst l
+    forM_ l' step1TopLevel
+    n1 <- foldM buildTopLevel n2 $ reverse l'
     setInitEntry n1
     setInitExit  n2
     s <- get
