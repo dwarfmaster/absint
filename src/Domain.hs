@@ -1,5 +1,12 @@
 
-module Domain (Domain) where
+{-# LANGUAGE StandaloneDeriving #-}
+
+module Domain ( Domain( union, inter, emptyset, top
+                      , singleton, singtrue, included
+                      , interv, binop, unop
+                      , binop_bwd, unop_bwd )
+              , DomainAbstract )
+       where
 import AST
 import Graph
 import Iterator
@@ -24,72 +31,73 @@ class Domain d where
     unop_bwd  :: Unop () -> d -> d -> d
 
 -- Wrapper transforming a domain into an abstract
-data MkAbstract d = MkAbstract (Map EVarID d)
+data DomainAbstract d = DomainAbstract (Map EVarID d)
+deriving instance Show d => Show (DomainAbstract d)
 
-domain_bottom :: (Domain d, Ord d) => MkAbstract d
-domain_bottom = MkAbstract M.empty
+domain_bottom :: (Domain d, Ord d) => DomainAbstract d
+domain_bottom = DomainAbstract M.empty
 
 queryOr :: Ord k => v -> Map k v -> k -> v
 queryOr def map key = case M.lookup key map of
                        Nothing -> def
                        Just x  -> x
 
-eval_expr :: (Domain d, Ord d) => MkAbstract d -> EdgeExpr -> d
-eval_expr (MkAbstract mp) (EEconst i)       = singleton i
-eval_expr (MkAbstract mp) (EEvar vid)       = queryOr undefined mp vid
-eval_expr (MkAbstract mp) (EInter e1 e2)    = interv x1 x2
- where x1 = eval_expr (MkAbstract mp) e1
-       x2 = eval_expr (MkAbstract mp) e2
-eval_expr (MkAbstract mp) (EEbinop b e1 e2) = binop (fmap undefined b) x1 x2
- where x1 = eval_expr (MkAbstract mp) e1
-       x2 = eval_expr (MkAbstract mp) e2
-eval_expr (MkAbstract mp) (EEunop u e)      = unop (fmap undefined u) x
- where x  = eval_expr (MkAbstract mp) e
+eval_expr :: (Domain d, Ord d) => DomainAbstract d -> EdgeExpr -> d
+eval_expr (DomainAbstract mp) (EEconst i)       = singleton i
+eval_expr (DomainAbstract mp) (EEvar vid)       = queryOr emptyset mp vid
+eval_expr (DomainAbstract mp) (EInter e1 e2)    = interv x1 x2
+ where x1 = eval_expr (DomainAbstract mp) e1
+       x2 = eval_expr (DomainAbstract mp) e2
+eval_expr (DomainAbstract mp) (EEbinop b e1 e2) = binop (fmap undefined b) x1 x2
+ where x1 = eval_expr (DomainAbstract mp) e1
+       x2 = eval_expr (DomainAbstract mp) e2
+eval_expr (DomainAbstract mp) (EEunop u e)      = unop (fmap undefined u) x
+ where x  = eval_expr (DomainAbstract mp) e
 
-domain_assign :: (Domain d, Ord d) => EVarID -> EdgeExpr -> MkAbstract d -> MkAbstract d
-domain_assign vid expr (MkAbstract mp) = MkAbstract $ M.insert vid inter mp
- where inter = eval_expr (MkAbstract mp) expr
+domain_assign :: (Domain d, Ord d) => EVarID -> EdgeExpr -> DomainAbstract d -> DomainAbstract d
+domain_assign vid expr (DomainAbstract mp) = DomainAbstract $ M.insert vid inter mp
+ where inter = eval_expr (DomainAbstract mp) expr
 
 -- TODO optimize
-eval_expr_bwd :: (Domain d, Ord d) => MkAbstract d -> d -> EdgeExpr -> MkAbstract d
-eval_expr_bwd (MkAbstract mp) constraint (EEconst i) = if included (singleton i) constraint
-                                                        then MkAbstract mp
+eval_expr_bwd :: (Domain d, Ord d) => DomainAbstract d -> d -> EdgeExpr -> DomainAbstract d
+eval_expr_bwd (DomainAbstract mp) constraint (EEconst i) = if included (singleton i) constraint
+                                                        then DomainAbstract mp
                                                         else domain_bottom
-eval_expr_bwd (MkAbstract mp) constraint (EEvar vid) = MkAbstract $ M.insert vid (inter val constraint) mp
+eval_expr_bwd (DomainAbstract mp) constraint (EEvar vid) = DomainAbstract $ M.insert vid (inter val constraint) mp
  where val = queryOr emptyset mp vid
-eval_expr_bwd (MkAbstract mp) constraint (EInter e1 e2) =
+eval_expr_bwd (DomainAbstract mp) constraint (EInter e1 e2) =
     if included (inter constraint $ interv x1 x2) emptyset then domain_bottom
-                                                           else MkAbstract mp
- where x1 = eval_expr (MkAbstract mp) e1
-       x2 = eval_expr (MkAbstract mp) e2
-eval_expr_bwd (MkAbstract mp) constraint (EEbinop bp e1 e2) =
-    eval_expr_bwd (eval_expr_bwd (MkAbstract mp) c1 e1) c2 e2
- where x1 = eval_expr (MkAbstract mp) e1
-       x2 = eval_expr (MkAbstract mp) e2
+                                                           else DomainAbstract mp
+ where x1 = eval_expr (DomainAbstract mp) e1
+       x2 = eval_expr (DomainAbstract mp) e2
+eval_expr_bwd (DomainAbstract mp) constraint (EEbinop bp e1 e2) =
+    eval_expr_bwd (eval_expr_bwd (DomainAbstract mp) c1 e1) c2 e2
+ where x1 = eval_expr (DomainAbstract mp) e1
+       x2 = eval_expr (DomainAbstract mp) e2
        (c1,c2) = binop_bwd (fmap undefined bp) x1 x2 constraint
-eval_expr_bwd (MkAbstract mp) constraint (EEunop un e) =
-    eval_expr_bwd (MkAbstract mp) c e
- where x = eval_expr (MkAbstract mp) e
+eval_expr_bwd (DomainAbstract mp) constraint (EEunop un e) =
+    eval_expr_bwd (DomainAbstract mp) c e
+ where x = eval_expr (DomainAbstract mp) e
        c = unop_bwd (fmap undefined un) x constraint
 
-domain_guard :: (Domain d, Ord d) => EdgeExpr -> MkAbstract d -> MkAbstract d
+domain_guard :: (Domain d, Ord d) => EdgeExpr -> DomainAbstract d -> DomainAbstract d
 domain_guard expr abs = eval_expr_bwd abs singtrue expr
 
-domain_widen :: (Domain d, Ord d) => MkAbstract d -> MkAbstract d
-domain_widen (MkAbstract mp) = MkAbstract $ M.map (\_ -> top) mp
+domain_widen :: (Domain d, Ord d) => DomainAbstract d -> DomainAbstract d
+domain_widen (DomainAbstract mp) = DomainAbstract $ M.map (\_ -> top) mp
 
-domain_subset :: (Domain d, Ord d) => MkAbstract d -> MkAbstract d -> Bool
-domain_subset (MkAbstract mp1) (MkAbstract mp2) =
+domain_subset :: (Domain d, Ord d) => DomainAbstract d -> DomainAbstract d -> Bool
+domain_subset (DomainAbstract mp1) (DomainAbstract mp2) =
     M.foldWithKey (\k e b -> b && ((M.member k mp2 && included e (mp2 ! k)) || included e emptyset)) True mp1
 
-domain_join :: (Domain d, Ord d) => MkAbstract d -> MkAbstract d -> MkAbstract d
-domain_join (MkAbstract mp1) (MkAbstract mp2) = MkAbstract $ M.unionWith (\a1 a2 -> union a1 a2) mp1 mp2
+domain_join :: (Domain d, Ord d) => DomainAbstract d -> DomainAbstract d -> DomainAbstract d
+domain_join (DomainAbstract mp1) (DomainAbstract mp2) = DomainAbstract $ M.unionWith (\a1 a2 -> union a1 a2) mp1 mp2
 
-domain_backport :: (Domain d, Ord d) => [EVarID] -> MkAbstract d -> MkAbstract d -> MkAbstract d
-domain_backport lst (MkAbstract src) (MkAbstract dst) = MkAbstract $
+domain_backport :: (Domain d, Ord d) => [EVarID] -> DomainAbstract d -> DomainAbstract d -> DomainAbstract d
+domain_backport lst (DomainAbstract src) (DomainAbstract dst) = DomainAbstract $
     foldl (\mp id -> M.insert id (queryOr emptyset src id) mp) dst lst
 
-instance (Domain d, Ord d) => Abstract (MkAbstract d) where
+instance (Domain d, Ord d) => Abstract (DomainAbstract d) where
     bottom   = domain_bottom
     assign   = domain_assign
     guard    = domain_guard
