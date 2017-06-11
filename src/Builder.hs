@@ -394,7 +394,38 @@ buildInstr n lout (Instr (Just (Ident l,_)) (i,pos)) = do
 step1TopLevel :: TopLevel Pos -> St ()
 step1TopLevel (TdeclVar (tp, _) lst) = do
     forM_ lst $ \((Ident name, pos), _) -> newTopVar name (fmap undefined tp) pos
-step1TopLevel _ = return ()
+
+step1TopLevel (TdeclFun (tp, _) (Ident name, pos) prms) = do
+    b <- hasFunction name
+    if b then return ()
+    else do
+        fbeg <- newNode pos Nothing
+        fend <- newNode pos Nothing
+        args <- forM prms $ \((Ident v, pos), (tp, _)) -> newVar v (fmap (const ()) tp) pos
+        ret  <- newVar' (fmap (const ()) tp) pos
+        _    <- newFun name fbeg fend args ret (fmap (const ()) tp)
+        return ()
+
+step1TopLevel (TimplFun tp nm@(Ident name,_) prms (i, _)) = do
+    pushBindings
+    _  <- step1TopLevel (TdeclFun tp nm prms)
+    nb <- getFun function_entry name
+    ne <- getFun function_exit  name
+    rt <- getFun function_ret   name
+    n  <- buildInstr ne ne i
+    s  <- get
+    -- Handling returns
+    forM_ (st_returns s) $ \(nd, me) -> case me of
+        Nothing -> newEdge nd ne EInop
+        Just e  -> newEdge nd ne (EIassign rt e)
+    -- Handling gotos
+    let labels = st_labels s
+    forM_ (st_gotos s) $ \(lbl,src) -> newEdge src (labels ! lbl) EInop
+    s  <- get
+    put $ s { st_returns = [], st_labels = M.empty, st_gotos = [] }
+    popBindings
+    _  <- newEdge nb n EInop
+    return ()
 
 buildTopLevel :: NodeID -> TopLevel Pos -> St NodeID
 buildTopLevel n2 (TdeclVar (tp, _) lst) = do
@@ -412,37 +443,7 @@ buildTopLevel n2 (TdeclVar (tp, _) lst) = do
            _         <- newEdge n2' n2 (EIassign nv ne)
            return n1'
 
-buildTopLevel n2 (TdeclFun (tp, _) (Ident name, pos) prms) = do
-    b <- hasFunction name
-    if b then return n2
-    else do
-        fbeg <- newNode pos Nothing
-        fend <- newNode pos Nothing
-        args <- forM prms $ \((Ident v, pos), (tp, _)) -> newVar v (fmap (const ()) tp) pos
-        ret  <- newVar' (fmap (const ()) tp) pos
-        _    <- newFun name fbeg fend args ret (fmap (const ()) tp)
-        return n2
-
-buildTopLevel n2 (TimplFun tp nm@(Ident name,_) prms (i, _)) = do
-    pushBindings
-    _  <- buildTopLevel n2 (TdeclFun tp nm prms)
-    nb <- getFun function_entry name
-    ne <- getFun function_exit  name
-    rt <- getFun function_ret   name
-    n  <- buildInstr ne ne i
-    s  <- get
-    -- Handling returns
-    forM_ (st_returns s) $ \(nd, me) -> case me of
-        Nothing -> newEdge nd ne EInop
-        Just e  -> newEdge nd ne (EIassign rt e)
-    -- Handling gotos
-    let labels = st_labels s
-    forM_ (st_gotos s) $ \(lbl,src) -> newEdge src (labels ! lbl) EInop
-    s  <- get
-    put $ s { st_returns = [], st_labels = M.empty, st_gotos = [] }
-    popBindings
-    _  <- newEdge nb n EInop
-    return n2
+buildTopLevel n2 _ = return n2
 
 buildFile :: File -> St Program
 buildFile [] = return $ Program [] [] [] [] 0 0 []
