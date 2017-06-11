@@ -2,6 +2,7 @@
 module Concrete(IntSet) where
 import Domain
 import AST
+import Utility
 import Data.Set (Set, (\\))
 import qualified Data.Set as S
 
@@ -44,39 +45,8 @@ set_interv (Finite s1) (Finite s2) = if S.null s1 || S.null s2 then set_emptyset
  where min = S.findMin s1
        max = S.findMin s2
        
-dodiv :: Binop () -> Bool
-dodiv Bdiv = True
-dodiv Bmod = True
-dodiv _    = False
-
 haszero :: Set Integer -> Bool
 haszero s = (not $ S.null s) && S.findMin s <= 0 && S.findMax s >= 0
-
-fromBool :: (Integer -> Integer -> Bool) -> (Integer -> Integer -> Integer)
-fromBool r = \x y -> f $ r x y
- where f True  = 1
-       f False = 0
-
-fromBBBool :: (Bool -> Bool -> Bool) -> (Integer -> Integer -> Integer)
-fromBBBool r = \x y -> f $ r (g x) (g y)
- where f True  = 1
-       f False = 0
-       g i = i /= 0
-
-interpret_binop :: Binop () -> Integer -> Integer -> Integer
-interpret_binop Bplus  = (+)
-interpret_binop Btimes = (*)
-interpret_binop Bless  = (-)
-interpret_binop Bdiv   = div
-interpret_binop Bmod   = mod
-interpret_binop Blt    = fromBool (<)
-interpret_binop Ble    = fromBool (<=)
-interpret_binop Beq    = fromBool (==)
-interpret_binop Bneq   = fromBool (/=)
-interpret_binop Bgt    = fromBool (>)
-interpret_binop Bge    = fromBool (>=)
-interpret_binop Bor    = fromBBBool (||)
-interpret_binop Band   = fromBBBool (&&)
 
 set_binop :: Binop () -> IntSet -> IntSet -> IntSet
 set_binop b Top Top                 = if dodiv b then set_emptyset else Top
@@ -85,12 +55,6 @@ set_binop b (Finite s) Top          = if dodiv b || S.null s then set_emptyset e
 set_binop b (Finite s1) (Finite s2) = if dodiv b && haszero s2 then set_emptyset
                                       else Finite $ S.fromList [x `op` y | x <- S.toList s1, y <- S.toList s2]
  where op = interpret_binop b
-
-interpret_unop :: Unop () -> Integer -> Integer
-interpret_unop Uneg x = -x
-interpret_unop Unot x = f $ not $ x /= 0
- where f True  = 1
-       f False = 0
 
 set_unop :: Unop () -> IntSet -> IntSet
 set_unop u Top = Top
