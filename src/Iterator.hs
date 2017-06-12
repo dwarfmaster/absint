@@ -71,7 +71,7 @@ worklist program = do
         incrSeen nbSeens dst
         count <- queryOrInit 0 dst nbSeens
         let can_widen = node_widen $ getNodeByID program dst
-        let final = if can_widen && count == 3 then widen else id
+        let final = if (can_widen && count == 3) || count >= 10 then widen else id
 
         -- Abstract instruction
         update dst final $ absEdge dst
