@@ -62,7 +62,7 @@ valid :: Segment -> Bool
 valid (Seg a b) = a <= b
 
 seg_union :: Segment -> Segment -> Segment
-seg_union (Seg a1 b1) (Seg a2 b2) = Seg (min a1 a2) (max a2 b2)
+seg_union (Seg a1 b1) (Seg a2 b2) = Seg (min a1 a2) (max b1 b2)
 
 seg_inter :: Segment -> Segment -> Segment
 seg_inter (Seg a1 b1) (Seg a2 b2) = if valid r then r else seg_emptyset
@@ -172,13 +172,13 @@ binop_bwd' Blt (Seg a1 b1) (Seg a2 b2) s3 | s3 == seg_singleton 1 =
                 else Seg a1 (min b1 (b2 - (GInt 1)))
 binop_bwd' Bgt (Seg a1 b1) (Seg a2 b2) s3 | s3 == seg_singleton 1 =
     if b1 <= a2 then seg_emptyset
-                else Seg (max a1 (a2 + (GInt 1))) b2
+                else Seg (max a1 (a2 + (GInt 1))) b1
 binop_bwd' Ble (Seg a1 b1) (Seg a2 b2) s3 | s3 == seg_singleton 1 =
     if a1 > b2 then seg_emptyset
                else Seg a1 (min b1 b2)
 binop_bwd' Bge (Seg a1 b1) (Seg a2 b2) s3 | s3 == seg_singleton 1 =
     if b1 < a2 then seg_emptyset
-               else Seg (max a1 a2) b2
+               else Seg (max a1 a2) b1
 binop_bwd' Beq s1 s2 s3 | s3 == seg_singleton 1 = seg_inter s1 s2
 binop_bwd' Bneq (Seg a1 b1) (Seg a2 b2) s3 | s3 == seg_singleton 1 = if a1 == b1 && b1 == a2 && a2 == b2
                                                                          then seg_emptyset
@@ -209,13 +209,13 @@ binop_bwd' _ s1 _ _ = s1
 
 -- Do backward propagation on s2
 binop_bwd'' :: Binop () -> Segment -> Segment -> Segment -> Segment
-binop_bwd'' Bdiv s1 s2 s3  = s2
-binop_bwd'' Bmod s1 s2 s3  = s2
+binop_bwd'' Bdiv  s1 s2 s3 = s2
+binop_bwd'' Bmod  s1 s2 s3 = s2
 binop_bwd'' Bless s1 s2 s3 = binop_bwd' Bless s2 s1 $ seg_unop Uneg s3
-binop_bwd'' Blt  s1 s2 s3  = binop_bwd' Bgt s2 s1 s3
-binop_bwd'' Ble  s1 s2 s3  = binop_bwd' Bge s2 s1 s3
-binop_bwd'' Bgt  s1 s2 s3  = binop_bwd' Blt s2 s1 s3
-binop_bwd'' Bge  s1 s2 s3  = binop_bwd' Ble s2 s1 s3
+binop_bwd'' Blt   s1 s2 s3 = binop_bwd' Bgt s2 s1 s3
+binop_bwd'' Ble   s1 s2 s3 = binop_bwd' Bge s2 s1 s3
+binop_bwd'' Bgt   s1 s2 s3 = binop_bwd' Blt s2 s1 s3
+binop_bwd'' Bge   s1 s2 s3 = binop_bwd' Ble s2 s1 s3
 -- All other cases are symmetric
 binop_bwd'' b    s1 s2 s3 = binop_bwd' b s2 s1 s3
 
