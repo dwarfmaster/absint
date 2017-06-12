@@ -5,6 +5,7 @@ import Data.Graph.Inductive.Graph
 import qualified Data.Graph.Inductive.PatriciaTree as PT
 import qualified Data.GraphViz as GV
 import qualified Data.GraphViz.Commands as GVC
+import qualified Data.GraphViz.Attributes as GVA
 
 type NodeID = Integer
 data NodeLabel = NodeLabel
@@ -96,5 +97,9 @@ makeFGL prg = mkGraph nodes edges
 writeDot :: Program -> IO ()
 writeDot prg = GVC.runGraphviz dot GV.Pdf "graph.pdf" >> return ()
  where fgl = makeFGL prg :: PT.Gr String String
-       dot = GV.graphToDot GV.nonClusteredParams fgl
+       dot = GV.graphToDot params fgl
+       GV.Params isDir gA cB iDC cID fmtC fn fl = GV.nonClusteredParams
+       params = GV.Params isDir gA cB iDC cID fmtC
+                          (\c@(n,l)   -> GVA.toLabel (show n ++ ":" ++ l) : fn c)
+                          (\c@(_,_,l) -> GVA.toLabel l : fl c)
 
