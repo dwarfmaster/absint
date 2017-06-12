@@ -11,4 +11,5 @@ void main()
 {
   int k = i + j;
   k = f(k);
+  k = f(k);
 }
