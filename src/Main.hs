@@ -5,6 +5,7 @@ import Builder
 import Graph
 import Concrete
 import Constant
+import Segment
 import Domain
 import qualified Iterator as It
 import Data.Map (Map)
@@ -16,6 +17,6 @@ main = do
      Left e   -> putStrLn $ "Error : " ++ e
      Right fl -> do let prg = build_graph fl
                     writeDot prg
-                    let analysis = It.iterate prg :: Map NodeID (DomainAbstract ConstantDomain)
+                    let analysis = It.iterate prg :: Map NodeID (DomainAbstract Segment)
                     putStrLn $ show analysis
 
