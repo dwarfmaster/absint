@@ -15,6 +15,7 @@ data NodeLabel = NodeLabel
                                  -- in the source code
     , node_out   :: [EdgeID]
     , node_in    :: [EdgeID]
+    , node_widen :: Bool         -- is this a widening node
     } deriving (Show)
 
 type EdgeID = Integer

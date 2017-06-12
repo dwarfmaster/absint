@@ -134,27 +134,33 @@ popBindings = do
 
 
 -- The node_out and node_in are filled in a second processing of the built graph
-addNode :: NodeID -> Pos -> Maybe String -> Program -> Program
-addNode nid pos str prg = prg { program_nodes = node : (program_nodes prg) }
- where node = NodeLabel nid pos str [] []
+addNode :: NodeID -> Pos -> Maybe String -> Bool -> Program -> Program
+addNode nid pos str wdn prg = prg { program_nodes = node : (program_nodes prg) }
+ where node = NodeLabel nid pos str [] [] wdn
 
 newNodeID :: St NodeID
 newNodeID = newID
 
-newNode :: Pos -> Maybe String -> St NodeID
-newNode pos Nothing = do
+newNode' :: Pos -> Maybe String -> Bool -> St NodeID
+newNode' pos Nothing wdn = do
     nid <- newNodeID
-    updateProgram $ addNode nid pos Nothing
+    updateProgram $ addNode nid pos Nothing wdn
     updateIns  $ M.insert nid []
     updateOuts $ M.insert nid []
     return nid
-newNode pos (Just label) = do
+newNode' pos (Just label) wdn = do
     nid <- newNodeID
-    updateProgram $ addNode nid pos $ Just label
+    updateProgram $ addNode nid pos (Just label) wdn
     updateLabels  $ M.insert label nid
     updateIns  $ M.insert nid []
     updateOuts $ M.insert nid []
     return nid
+
+newNode :: Pos -> Maybe String -> St NodeID
+newNode pos lbl = newNode' pos lbl False
+
+newWNode :: Pos -> Maybe String -> St NodeID
+newWNode pos lbl = newNode' pos lbl True
 
 
 
@@ -342,7 +348,7 @@ buildInstr' n1 n2 lout (Iif (e, pos) (ii, pii) (ie, pie)) = do
 buildInstr' n1 n2 lout (Iwhile (e,pe) (i,pi)) = do
     n5       <- newNode pi Nothing
     n4       <- buildInstr n5 lout i
-    n3       <- newNode pe Nothing
+    n3       <- newWNode pe Nothing
     (n1',ne) <- buildExpr n3 e
     _        <- newEdge n3 n4 (EIguard ne)
     _        <- newEdge n3 n2 (EIguard $ EEunop Unot ne)
@@ -360,7 +366,7 @@ buildInstr' n1 n2 lout (Ifor (i1, pi1) (e, pe) (i2, pi2) (bd, pbd)) = do
     n7      <- newNode pi2 Nothing
     n6      <- buildInstr n7 n2 i2
     n5      <- buildInstr n6 n2 bd
-    n4      <- newNode pe  Nothing
+    n4      <- newWNode pe  Nothing
     (n3,ne) <- buildExpr n4 e
     n1'     <- buildInstr n3 lout i1
     _       <- newEdge n1 n1' EInop
@@ -369,7 +375,10 @@ buildInstr' n1 n2 lout (Ifor (i1, pi1) (e, pe) (i2, pi2) (bd, pbd)) = do
     _       <- newEdge n7 n3 EInop
     return ()
 
-buildInstr' n1 n2 lout (Igoto (Ident label, pos)) = addGoto label n1
+buildInstr' n1 n2 lout (Igoto (Ident label, pos)) = do
+    n3 <- newWNode pos Nothing
+    _  <- newEdge n1 n3 EInop
+    addGoto label n3
 
 buildInstr' n1 n2 lout (Ireturn Nothing) = addReturn n1 Nothing
 buildInstr' n1 n2 lout (Ireturn (Just (e,pos))) = do
