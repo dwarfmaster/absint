@@ -61,8 +61,8 @@ domain_assign vid expr (DomainAbstract mp) = DomainAbstract $ M.insert vid inter
 -- TODO optimize
 eval_expr_bwd :: (Domain d, Ord d) => DomainAbstract d -> d -> EdgeExpr -> DomainAbstract d
 eval_expr_bwd (DomainAbstract mp) constraint (EEconst i) = if included (singleton i) constraint
-                                                        then DomainAbstract mp
-                                                        else domain_bottom
+                                                              then DomainAbstract mp
+                                                              else domain_bottom
 eval_expr_bwd (DomainAbstract mp) constraint (EEvar vid) = DomainAbstract $ M.insert vid (inter val constraint) mp
  where val = queryOr emptyset mp vid
 eval_expr_bwd (DomainAbstract mp) constraint (EInter e1 e2) =
