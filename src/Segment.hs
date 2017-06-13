@@ -102,13 +102,10 @@ seg_binop _ _ x | x == seg_emptyset = seg_emptyset
 
 seg_binop Bplus (Seg a1 b1) (Seg a2 b2)  = Seg (a1 + a2) (b1 + b2)
 seg_binop Btimes (Seg a1 b1) (Seg a2 b2) = Seg (minimum [ a1 * a2, a1 * b2
-                                                        , a2 * b1, a2 * b1])
+                                                        , b1 * a2, b1 * b2])
                                                (maximum [ a1 * a2, a1 * b2
-                                                        , a2 * b1, a2 * b1])
-seg_binop Bless (Seg a1 b1) (Seg a2 b2) = Seg (minimum [ a1 - a2, a1 - b2
-                                                       , a2 - b1, a2 - b1])
-                                              (maximum [ a1 - a2, a1 - b2
-                                                       , a2 - b1, a2 - b1])
+                                                        , b1 * a2, b1 * b2])
+seg_binop Bless (Seg a1 b1) (Seg a2 b2) = Seg (a1 - b2) (b1 - a2)
 
 seg_binop Bdiv (Seg a1 b1) (Seg a2 b2) | a2 > 0 = seg_union (msingleton (a1 `mdiv` a2)) $
                                                   seg_union (msingleton (b1 `mdiv` a2)) $
@@ -116,15 +113,17 @@ seg_binop Bdiv (Seg a1 b1) (Seg a2 b2) | a2 > 0 = seg_union (msingleton (a1 `mdi
                                                             (msingleton (b1 `mdiv` b2))
 seg_binop Bdiv (Seg a1 b1) (Seg a2 b2) | b2 < 0 = Seg (negate b3) (negate a3)
  where Seg a3 b3 = seg_binop Bdiv (Seg a1 b1) $ Seg (negate b2) (negate a2)
-seg_binop Bdiv _ _ = seg_emptyset -- Division by zero !
+seg_binop Bdiv s1 (Seg 0  b2) = seg_binop Bdiv s1 $ Seg 1 b2
+seg_binop Bdiv s1 (Seg a2 0)  = seg_binop Bdiv s1 $ Seg a2 $ -1
+seg_binop Bdiv s1 (Seg a2 b2) = seg_union (seg_binop Bdiv s1 (Seg a2 $ -1)) (seg_binop Bdiv s1 (Seg 1 b2))
 
 -- Could be made more precise
 seg_binop Bmod (Seg a1 b1) (Seg a2 b2) | a2 > 0 =
     if a1 > 0 then Seg 0 (b2 - (GInt 1)) else
     if b1 < 0 then Seg (negate (b2 - (GInt 1))) 0
               else Seg (negate (b2 - (GInt 1))) (b2 - (GInt 1))
-seg_binop Bmod (Seg a1 b1) (Seg a2 b2) | b2 < 0 = seg_binop Bmod (Seg a1 b1) $ Seg (negate b2) (negate a2)
-seg_binop Bmod _       _                 = seg_emptyset -- Division by zero
+seg_binop Bmod (Seg a1 b1) (Seg 0  0 ) = seg_emptyset
+seg_binop Bmod (Seg a1 b1) (Seg a2 b2) = seg_binop Bmod (Seg a1 b1) $ Seg 1 $ max (abs a1) (abs b2)
 
 seg_binop Blt (Seg a1 b1) (Seg a2 b2) =      if b1 < a2  then seg_singleton 1
                                         else if a1 >= b2 then seg_singleton 0
@@ -158,11 +157,15 @@ seg_unop Unot (Seg (GInt i1) (GInt i2)) = Seg (GInt $ 1 - i1) (GInt $ 1 - i2)
 seg_unop Unot _                         = seg_emptyset -- Only bottom is possible here as argument
 seg_unop Uneg (Seg a b)                 = Seg (negate b) (negate a) -- Also works on emptyset
 
+has_zero :: Segment -> Bool
+has_zero (Seg a b) = a <= 0 && b >= 0
+
 -- Do backward propagation on s1
 binop_bwd' :: Binop () -> Segment -> Segment -> Segment -> Segment
 binop_bwd' b x y z | x == seg_emptyset || y == seg_emptyset || z == seg_emptyset = seg_emptyset
 binop_bwd' Bplus s1 s2 s3  = seg_inter s1 $ seg_binop Bless s3 s2
-binop_bwd' Btimes s1 s2 s3 = seg_inter s1 $ seg_binop Bdiv s3 s2 -- ???
+binop_bwd' Btimes s1 s2 s3 = if has_zero s2 && has_zero s3 then s1
+                                                           else seg_inter s1 $ seg_binop Bdiv s3 s2 -- ???
 binop_bwd' Bless s1 s2 s3  = seg_inter s1 $ seg_binop Bplus s2 s3
 binop_bwd' Bdiv s1 s2 s3   = seg_inter s1 $ seg_binop Btimes s2 s3 -- ???
 binop_bwd' Bmod s1 s2 s3   = s1 -- No refinement : refining would be too difficult
