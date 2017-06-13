@@ -58,7 +58,8 @@ domain_assign :: (Domain d, Ord d) => EVarID -> EdgeExpr -> DomainAbstract d -> 
 domain_assign vid expr (DomainAbstract mp) = DomainAbstract $ M.insert vid inter mp
  where inter = eval_expr (DomainAbstract mp) expr
 
--- TODO optimize
+-- TODO optimize : instead of calling eval_expr everytime, it should compute it once
+-- and memoise the results in a tree
 eval_expr_bwd :: (Domain d, Ord d) => DomainAbstract d -> d -> EdgeExpr -> DomainAbstract d
 eval_expr_bwd (DomainAbstract mp) constraint (EEconst i) = if included (singleton i) constraint
                                                               then DomainAbstract mp
