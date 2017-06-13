@@ -43,7 +43,7 @@ import AST
     '+='        { TokenAddAssign      $$ }
     '-='        { TokenSubtractAssign $$ }
     '*='        { TokenMultiplyAssign $$ }
-    '/='        { TokenDivide         $$ }
+    '/='        { TokenDivideAssign   $$ }
     '%='        { TokenModuloAssign   $$ }
     '='         { TokenAssign         $$ }
     '('         { TokenLParent        $$ }
