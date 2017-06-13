@@ -10,6 +10,5 @@ int f(int x) {
 void main()
 {
   int k = i + j;
-  k = f(k);
-  k = f(k);
+  k = f(f(k));
 }
