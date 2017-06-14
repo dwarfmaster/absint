@@ -10,7 +10,6 @@ import qualified Data.STRef as R
 import qualified Data.HashTable.ST.Basic as HT
 import qualified Data.Hashable as HSH
 import qualified Data.Sequence as S
-import Debug.Trace
 
 class Abstract a where
     bottom   :: a
@@ -23,11 +22,11 @@ class Abstract a where
     -- and put them in the second one : necessary to handle recursion
     backport :: [EVarID] -> a -> a -> a
 
-iterate :: (Show a, Abstract a) => Program -> Map NodeID a
+iterate :: Abstract a => Program -> Map NodeID a
 iterate program = M.fromList $ runST $ iterator >>= tolist
  where tolist :: HT.HashTable s NodeID a -> ST s [(NodeID, a)]
        tolist = HT.foldM (\l e -> return $ e : l) []
-       iterator :: (Show a, Abstract a) => ST s (HT.HashTable s NodeID a)
+       iterator :: Abstract a => ST s (HT.HashTable s NodeID a)
        iterator = do
            abstract <- HT.new
            worklist program (program_init_entry program) abstract
@@ -51,7 +50,7 @@ type Queue s      = R.STRef s (S.Seq NodeID)
 type Mark s       = HT.HashTable s NodeID Bool
 type Count s      = HT.HashTable s NodeID Integer
 type AbsTable s a = HT.HashTable s NodeID a
-worklist :: (Show a, Abstract a) => Program -> NodeID
+worklist :: Abstract a => Program -> NodeID
          -> HT.HashTable s NodeID a -> ST s () -- Hashtable is changed by side-effect
 worklist program firstNode abstract = do
     -- Global variables
@@ -68,7 +67,6 @@ worklist program firstNode abstract = do
     let absEdge = abstractEdge program queue inQueue abstract asserts
     while (emptyNQueue queue) $ do
         Just dst <- dequeue queue inQueue
-        traceM $ "Handling " ++ show dst
 
         -- Widening
         incrSeen nbSeens dst
@@ -115,7 +113,7 @@ worklist program firstNode abstract = do
            abst <- queryOrInit bottom src abstract
            return (abst, edge_inst edge)
 
-       abstractEdge :: (Show a, Abstract a) => Program -> Queue s -> Mark s
+       abstractEdge :: Abstract a => Program -> Queue s -> Mark s
                     -> AbsTable s a -> R.STRef s [EdgeExpr]
                     -> NodeID -> EdgeID -> (a, EdgeInst) -> ST s a
        abstractEdge program queue inQueue abstract asserts dst eid (abst, inst) =
@@ -147,13 +145,13 @@ worklist program firstNode abstract = do
                                 else R.readSTRef asserts >>= \l -> R.writeSTRef asserts (expr : l)
                 return a'
 
-       updateNode :: (Show a, Abstract a) => Program -> Queue s -> Mark s -> Mark s -> HT.HashTable s NodeID a
+       updateNode :: Abstract a => Program -> Queue s -> Mark s -> Mark s -> HT.HashTable s NodeID a
                   -> NodeID -> (a -> a) -> (EdgeID -> (a, EdgeInst) -> ST s a) -> ST s ()
        updateNode program queue inQueue first abstract nid final f = do
            a <- queryOrInit bottom nid abstract
            let node = getNodeByID program nid
            let ins  = node_in node
-           ains <- forM ins $ \eid -> readEdge program abstract eid >>= \r -> traceShowM r >> f eid r
+           ains <- forM ins $ \eid -> readEdge program abstract eid >>= \r -> f eid r
            let a' = if null ins then a
                                 else final $ foldr join bottom ains
            b <- queryOrInit True nid first
