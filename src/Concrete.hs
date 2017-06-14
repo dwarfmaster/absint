@@ -49,15 +49,19 @@ set_interv (Finite s1) (Finite s2) = if S.null s1 || S.null s2 then set_emptyset
  where min = S.findMin s1
        max = S.findMin s2
        
-haszero :: Set Integer -> Bool
-haszero s = (not $ S.null s) && S.findMin s <= 0 && S.findMax s >= 0
+iszero :: Set Integer -> Bool
+iszero s = (not $ S.null s) && S.findMin s == 0 && S.findMax s == 0
 
 set_binop :: Binop () -> IntSet -> IntSet -> IntSet
-set_binop b Top Top                 = if dodiv b then set_emptyset else Top
-set_binop b Top (Finite s)          = if (dodiv b && haszero s) || S.null s then set_emptyset else Top
+set_binop b Top Top                 = Top
+set_binop b Top (Finite s)          = if (dodiv b && iszero s) || S.null s then set_emptyset else Top
 set_binop b (Finite s) Top          = if dodiv b || S.null s then set_emptyset else Top
-set_binop b (Finite s1) (Finite s2) = if dodiv b && haszero s2 then set_emptyset
-                                      else Finite $ S.fromList [x `op` y | x <- S.toList s1, y <- S.toList s2]
+set_binop b (Finite s1) (Finite s2) = if dodiv b && iszero s2 then set_emptyset
+                                      else Finite $ S.fromList [x `op` y 
+                                                               | x <- S.toList s1
+                                                               , y <- S.toList s2
+                                                               , not (dodiv b) || y /= 0
+                                                               ]
  where op = interpret_binop b
 
 set_unop :: Unop () -> IntSet -> IntSet
