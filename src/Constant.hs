@@ -52,7 +52,7 @@ cdom_interv _ _ = Top
 cdom_binop :: Binop () -> ConstantDomain -> ConstantDomain -> ConstantDomain
 cdom_binop _ Bottom _ = Bottom
 cdom_binop _ _ Bottom = Bottom
-cdom_binop b _ Top    = if dodiv b then Bottom else Top
+cdom_binop _ _ Top    = Top
 cdom_binop _ Top _    = Top
 cdom_binop b (Const i1) (Const i2) = if i2 == 0 && dodiv b then Bottom else Const $ interpret_binop b i1 i2
 
@@ -78,7 +78,7 @@ cdom_unop_bwd :: Unop () -> ConstantDomain -> ConstantDomain -> ConstantDomain
 cdom_unop_bwd _ x Top    = x
 cdom_unop_bwd _ _ Bottom = Bottom
 -- Same as above, it could be made a bit more clever here with more time
-cdom_unop_bwd _ Top _    = Bottom
+cdom_unop_bwd _ Top _    = Top
 cdom_unop_bwd _ Bottom _ = Bottom
 cdom_unop_bwd u (Const i) (Const j) = if interpret_unop u i == j then Const i else Bottom
 
