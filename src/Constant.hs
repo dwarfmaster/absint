@@ -5,7 +5,10 @@ import AST
 import Domain
 
 data ConstantDomain = Top | Bottom | Const Integer
-    deriving (Show)
+instance Show ConstantDomain where
+    show Top       = "|N"
+    show Bottom    = "_|_"
+    show (Const i) = "{" ++ show i ++ "}"
 
 cdom_union :: ConstantDomain -> ConstantDomain -> ConstantDomain
 cdom_union Top _ = Top

@@ -80,6 +80,9 @@ getNodeByID prg nid = head $ filter ((== nid) . node_id) $ program_nodes prg
 getEdgeByID :: Program -> EdgeID -> EdgeLabel
 getEdgeByID prg eid = head $ filter ((== eid) . edge_id) $ program_edges prg
 
+getVarByID :: Program -> EVarID -> EdgeVar
+getVarByID prg vid = head $ filter ((== vid) . edge_var_id) $ program_vars prg
+
 getFunByName :: Program -> String -> Function
 getFunByName prg name = head $ filter ((== name) . function_name) $ program_functions prg
 

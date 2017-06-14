@@ -5,13 +5,14 @@ module Domain ( Domain( union, inter, emptyset, top
                       , singleton, singtrue, included
                       , interv, binop, unop
                       , binop_bwd, unop_bwd )
-              , DomainAbstract )
+              , DomainAbstract, format )
        where
 import AST
 import Graph
 import Iterator
 import Data.Map (Map, (!))
 import qualified Data.Map as M
+import qualified Data.List as L
 
 -- d should be able to handle any kind of type (ie int, bool, void)
 class Domain d where
@@ -32,7 +33,6 @@ class Domain d where
 
 -- Wrapper transforming a domain into an abstract
 data DomainAbstract d = DomainAbstract (Map EVarID d)
-deriving instance Show d => Show (DomainAbstract d)
 
 domain_bottom :: (Domain d, Ord d) => DomainAbstract d
 domain_bottom = DomainAbstract M.empty
@@ -107,4 +107,6 @@ instance (Domain d, Ord d) => Abstract (DomainAbstract d) where
     join     = domain_join
     backport = domain_backport
 
+instance Show d => Show (DomainAbstract d) where
+    show (DomainAbstract dm) = L.intercalate "\n" $ map (\(k,v) -> show k ++ " in " ++ show v) $ M.toList dm
 

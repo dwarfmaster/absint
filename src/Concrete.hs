@@ -5,10 +5,14 @@ import AST
 import Utility
 import Data.Set (Set, (\\))
 import qualified Data.Set as S
+import qualified Data.List as L
 
 -- Boolean sets are only integer sets with 0 and/or 1 inside
 data IntSet = Finite (Set Integer) | Top
-    deriving (Show)
+
+instance Show IntSet where
+    show Top        = "|N"
+    show (Finite s) = "{" ++ (L.intercalate ", " $ map show $ S.toList s) ++ "}"
 
 set_union :: IntSet -> IntSet -> IntSet
 set_union Top _ = Top

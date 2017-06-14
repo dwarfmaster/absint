@@ -3,8 +3,17 @@ module Segment where
 import AST
 import Domain
 
-data GenInt = LInfinity | GInt Integer | RInfinity deriving (Show)
-data Segment = Seg GenInt GenInt deriving (Show)
+data GenInt = LInfinity | GInt Integer | RInfinity
+data Segment = Seg GenInt GenInt
+
+instance Show GenInt where
+    show LInfinity = "-\\infty"
+    show RInfinity = "+\\infty"
+    show (GInt i)  = show i
+
+instance Show Segment where
+    show s | s == seg_emptyset = "_|_"
+    show (Seg a b)             = "[" ++ show a ++ ", " ++ show b ++ "]"
 
 instance Eq GenInt where
     LInfinity == LInfinity = True

@@ -7,7 +7,9 @@ import Data.List (intercalate)
 data Pos = Pos { pos_file   :: String
                , pos_line   :: Int
                , pos_column :: Int
-               } deriving (Eq, Show)
+               } deriving (Eq)
+instance Show Pos where
+    show (Pos file line column) = file ++ ",l:" ++ (show line) ++ ",c:" ++ (show column)
 
 type Ann a b = (a b, b)
 
