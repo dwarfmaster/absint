@@ -6,7 +6,7 @@ import Domain
 
 data ConstantDomain = Top | Bottom | Const Integer
 instance Show ConstantDomain where
-    show Top       = "|N"
+    show Top       = "Z"
     show Bottom    = "_|_"
     show (Const i) = "{" ++ show i ++ "}"
 

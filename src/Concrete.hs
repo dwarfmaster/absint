@@ -11,7 +11,7 @@ import qualified Data.List as L
 data IntSet = Finite (Set Integer) | Top
 
 instance Show IntSet where
-    show Top        = "|N"
+    show Top        = "Z"
     show (Finite s) = "{" ++ (L.intercalate ", " $ map show $ S.toList s) ++ "}"
 
 set_union :: IntSet -> IntSet -> IntSet
